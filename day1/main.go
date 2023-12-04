@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 func main() {
@@ -23,10 +24,53 @@ func main() {
 		lines = append(lines, scanner.Text())
 	}
 
+
+	sum1 := partOne(lines)
+	fmt.Printf("Part One: %d\n", sum1)
+
+	sum2 := partTwo(lines)
+	fmt.Printf("Part Two: %d\n", sum2)
+}
+
+func partOne(lines []string) int {
+	return calculateSum(lines)
+}
+
+func partTwo(lines []string) int {
+	var newLines []string
+
+	replacers := []*strings.Replacer {
+			strings.NewReplacer("one", "o1e"),
+			strings.NewReplacer("two", "t2o"),
+			strings.NewReplacer("three", "t3e"),
+			strings.NewReplacer("four", "4"),
+			strings.NewReplacer("five", "f5e"),
+			strings.NewReplacer("six", "6"),
+			strings.NewReplacer("seven", "s7n"),
+			strings.NewReplacer("eight", "e8t"),
+			strings.NewReplacer("nine", "n9e"),
+	}
+
+	for _, l := range lines {
+		nl := applyReplacers(l, replacers...)
+		newLines = append(newLines, nl)
+	}
+
+	return calculateSum(newLines)
+}
+
+func applyReplacers(line string, replacers ...*strings.Replacer) string {
+	result := line
+	for _, r := range replacers {
+		result = r.Replace(result)
+	}
+	return result
+}
+
+func calculateSum(lines []string) int {
 	var sum int
 
 	for _, line := range lines {
-
 		left := findLeft(line)
 		right := findRight(line)
 
@@ -40,7 +84,7 @@ func main() {
 		sum += d
 	}
 
-	fmt.Println(sum)
+	return sum
 }
 
 func startIndex(index int) func(int, int) int {
