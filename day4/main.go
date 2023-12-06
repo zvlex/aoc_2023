@@ -9,16 +9,18 @@ import (
 )
 
 type Card struct {
-	id int
+	id       int
 	cardNums []string
-	yNums []string
+	yNums    []string
 }
 
 type WinCard struct {
-	points int
-	winNums []string
+	cardId    int
+	points    int
+	quantity  int
+	winNums   []string
+	matchNums int
 }
-
 
 func main() {
 	f, err := os.Open("./input")
@@ -42,7 +44,6 @@ func main() {
 			log.Fatal(err)
 		}
 
-
 		card.cardNums = append(card.cardNums, strings.Fields(data[1])...)
 		card.yNums = append(card.yNums, strings.Fields(data[2])...)
 
@@ -62,40 +63,37 @@ func main() {
 			yLen := len(card.yNums)
 
 			for j, yN := range card.yNums {
-				//fmt.Println(factor)
 				if cN == yN {
 					if wCard.points == 0 {
 						wCard.points = 1
 					}
 					wCard.points *= factor
 					wCard.winNums = append(wCard.winNums, cN)
+					wCard.matchNums += 1
 
 					factor = 2
 					found = true
 
-					//
-					//fmt.Println("----->")
-					//fmt.Println(">", yN, cN, wCard.points)
 					break
 				}
 
-				if found && yLen - 1 == j {
+				if found && yLen-1 == j {
 					factor = 1
 				}
-
 
 			}
 		}
 
-
-		if wCard.points > 0 {
-			winCards = append(winCards, wCard)
-		}
+		wCard.quantity = 1
+		wCard.cardId = card.id
+		winCards = append(winCards, wCard)
 	}
-
 
 	sum1 := partOne(winCards)
 	fmt.Println("Part One: ", sum1)
+
+	sum2 := partTwo(winCards)
+	fmt.Println("Part Two: ", sum2)
 }
 
 func partOne(winCards []WinCard) int {
@@ -108,6 +106,21 @@ func partOne(winCards []WinCard) int {
 	return sum
 }
 
+func partTwo(winCards []WinCard) int {
+	var sum int
+
+	for i, wc := range winCards {
+		for j := 0; j < wc.matchNums; j++ {
+			winCards[i+j+1].quantity += wc.quantity
+		}
+	}
+
+	for _, wc := range winCards {
+		sum += wc.quantity
+	}
+
+	return sum
+}
 
 func split(c rune) bool {
 	return c == ':' || c == '|'
