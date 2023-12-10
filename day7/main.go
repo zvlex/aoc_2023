@@ -10,20 +10,20 @@ import (
 	"strings"
 )
 
-var labels = map[string]string{
-	"A": "60",
-	"K": "50",
-	"Q": "40",
-	"J": "30",
-	"T": "20",
-	"9": "19",
-	"8": "18",
-	"7": "17",
-	"6": "16",
-	"5": "15",
-	"4": "14",
-	"3": "13",
-	"2": "12",
+var labels = map[string]int{
+	"2": 12,
+	"3": 13,
+	"4": 14,
+	"5": 15,
+	"6": 16,
+	"7": 17,
+	"8": 18,
+	"9": 19,
+	"J": 30,
+	"T": 20,
+	"Q": 40,
+	"K": 50,
+	"A": 60,
 }
 
 type Card struct {
@@ -38,70 +38,10 @@ type HandProps struct {
 	label  string
 }
 
-func fetchHandData(hands string) HandProps {
-	res := map[string]int{}
-	var weights []string
+var joker = "J"
+var jack = "J"
 
-	for _, v := range hands {
-		s := string(v)
-
-		res[s] += 1
-
-		value, exists := labels[s]
-
-		if !exists {
-			value = s
-		}
-
-		weights = append(weights, value)
-	}
-
-	sameLabelsQuantity := 1
-	uniqLabelsQuantity := len(res)
-
-	for _, v := range res {
-		if v > sameLabelsQuantity {
-			sameLabelsQuantity = v
-		}
-	}
-
-	var handProps HandProps
-
-	weight := strings.Join(weights, "")
-
-	w, err := strconv.Atoi(weight)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	handProps.weight = w
-
-	switch {
-	case sameLabelsQuantity == 5:
-		handProps.score = 10
-		handProps.label = "Five of a kind"
-	case sameLabelsQuantity == 4 && uniqLabelsQuantity == 2:
-		handProps.score = 9
-		handProps.label = "Four of a kind"
-	case sameLabelsQuantity == 3 && uniqLabelsQuantity == 2:
-		handProps.score = 8
-		handProps.label = "Full house"
-	case sameLabelsQuantity == 3 && uniqLabelsQuantity == 3:
-		handProps.score = 7
-		handProps.label = "Three of a kind"
-	case sameLabelsQuantity == 2 && uniqLabelsQuantity == 3:
-		handProps.score = 6
-		handProps.label = "Two pair"
-	case sameLabelsQuantity == 2 && uniqLabelsQuantity == 4:
-		handProps.score = 5
-		handProps.label = "One pair"
-	default:
-		handProps.score = 1
-		handProps.label = "High card"
-	}
-
-	return handProps
-}
+var replaceRules = fetchReplaceRules()
 
 func main() {
 	f, err := os.Open("./input")
@@ -112,23 +52,143 @@ func main() {
 
 	scanner := bufio.NewScanner(f)
 
-	var cards []Card
+	var cards1 []Card
+	var cards2 []Card
 
 	for scanner.Scan() {
-		res := strings.Fields(scanner.Text())
+		text := scanner.Text()
 
-		handProps := fetchHandData(res[0])
-
-		bid, err := strconv.Atoi(res[1])
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		card := Card{hand: res[0], bid: bid, props: handProps}
-
-		cards = append(cards, card)
+		cards1 = append(cards1, parseCard(text, fetchHandData))
+		cards2 = append(cards2, parseCard(text, fetchHandData2))
 	}
 
+	cards1 = sortCards(cards1)
+	cards2 = sortCards(cards2)
+
+	sum1 := calculateSum(cards1)
+	fmt.Println("Part One: ", sum1)
+
+	sum2 := calculateSum(cards2)
+	fmt.Println("Part Two: ", sum2)
+}
+
+func fetchHandData(hand string) HandProps {
+	res := map[string]int{}
+
+	sameLabelQuantity := 1
+
+	for k := range labels {
+		labelQuantity := strings.Count(hand, k)
+
+		if labelQuantity > 0 {
+			res[k] = labelQuantity
+
+			if labelQuantity > sameLabelQuantity {
+				sameLabelQuantity = labelQuantity
+			}
+		}
+	}
+
+	currentReplaceRules := append(replaceRules, jack, "30")
+
+	uniqLabelQuantity := len(res)
+
+	replacer := strings.NewReplacer(currentReplaceRules...)
+
+	weight := replacer.Replace(hand)
+
+	return generateHandProps(weight, sameLabelQuantity, uniqLabelQuantity)
+}
+
+func fetchHandData2(hand string) HandProps {
+	res := map[string]int{}
+
+	sameLabelQuantity := 1
+
+	for k := range labels {
+		labelQuantity := strings.Count(hand, k)
+
+		if labelQuantity > 0 {
+			res[k] = labelQuantity
+
+			if labelQuantity > sameLabelQuantity && k != joker {
+				sameLabelQuantity = labelQuantity
+			}
+		}
+	}
+
+	if res[joker] < 5 {
+		sameLabelQuantity += res[joker]
+	} else {
+		sameLabelQuantity = res[joker]
+	}
+
+	currentReplaceRules := append(replaceRules, joker, "10")
+
+	delete(res, joker)
+
+	uniqLabelQuantity := len(res)
+
+	replacer := strings.NewReplacer(currentReplaceRules...)
+
+	weight := replacer.Replace(hand)
+
+	return generateHandProps(weight, sameLabelQuantity, uniqLabelQuantity)
+}
+
+func generateHandProps(wStr string, sameLabelQuantity int, uniqLabelQuantity int) HandProps {
+	var handProps HandProps
+
+	w, err := strconv.Atoi(wStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	handProps.weight = w
+
+	switch {
+	case sameLabelQuantity == 5:
+		handProps.score = 10
+		handProps.label = "Five of a kind"
+	case sameLabelQuantity == 4 && uniqLabelQuantity == 2:
+		handProps.score = 9
+		handProps.label = "Four of a kind"
+	case sameLabelQuantity == 3 && uniqLabelQuantity == 2:
+		handProps.score = 8
+		handProps.label = "Full house"
+	case sameLabelQuantity == 3 && uniqLabelQuantity == 3:
+		handProps.score = 7
+		handProps.label = "Three of a kind"
+	case sameLabelQuantity == 2 && uniqLabelQuantity == 3:
+		handProps.score = 6
+		handProps.label = "Two pair"
+	case sameLabelQuantity == 2 && uniqLabelQuantity == 4:
+		handProps.score = 5
+		handProps.label = "One pair"
+	default:
+		handProps.score = 1
+		handProps.label = "High card"
+	}
+
+	return handProps
+}
+
+func fetchReplaceRules() []string {
+	var rules []string
+
+	for k, v := range labels {
+		if k == joker || k == jack {
+			continue
+		}
+
+		rules = append(rules, k)
+		rules = append(rules, fmt.Sprint(v))
+	}
+
+	return rules
+}
+
+func sortCards(cards []Card) []Card {
 	sort.Slice(cards, func(x, y int) bool {
 		propsX := cards[x].props
 		propsY := cards[y].props
@@ -140,17 +200,30 @@ func main() {
 		return propsX.weight > propsY.weight
 	})
 
-	sum1 := partOne(cards)
-	fmt.Println("Part One: ", sum1)
+	return cards
 }
 
-func partOne(cards []Card) int {
+func parseCard(value string, fetchData func(string) HandProps) Card {
+	res := strings.Fields(value)
+
+	handProps := fetchData(res[0])
+
+	bid, err := strconv.Atoi(res[1])
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return Card{hand: res[0], bid: bid, props: handProps}
+}
+
+func calculateSum(cards []Card) int {
 	var sum int
 
 	rank := len(cards)
 
-	for _, cX := range cards {
-		sum += cX.bid * rank
+	for _, c := range cards {
+		//fmt.Println(c.hand, c.props.label, rank, c.props.score, c.props.weight)
+		sum += c.bid * rank
 		rank -= 1
 	}
 
